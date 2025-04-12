@@ -1,24 +1,12 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import UserProfile, Post, Comment, Like, Follow, Notification
+from .models import Post, Comment, Like, Notification
 
 # User Serializer
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email']
-
-# UserProfile Serializer
-class UserProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)  # Nested User Details
-    followers_count = serializers.SerializerMethodField()  # Count Followers
-
-    class Meta:
-        model = UserProfile
-        fields = ['user', 'bio', 'profile_picture', 'followers_count']
-
-    def get_followers_count(self, obj):
-        return obj.followers.count()  # Get number of followers
 
 # Post Serializer
 class PostSerializer(serializers.ModelSerializer):
@@ -31,12 +19,16 @@ class PostSerializer(serializers.ModelSerializer):
 # Comment Serializer
 class CommentSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
-    post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.all())
 
     class Meta:
         model = Comment
-        fields = ['id', 'user', 'post', 'content', 'created_at']
+        fields = ['id', 'user', 'content', 'created_at']
+        read_only_fields = ['user', 'created_at']
 
+    def create(self, validated_data):
+        # Accept 'post' from context instead of request.data
+        validated_data['post'] = self.context['post']
+        return super().create(validated_data)
 # Like Serializer
 class LikeSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
@@ -46,17 +38,11 @@ class LikeSerializer(serializers.ModelSerializer):
         model = Like
         fields = ['id', 'user', 'post', 'created_at']
 
-# Follow Serializer
-class FollowSerializer(serializers.ModelSerializer):
-    follower = UserSerializer(read_only=True)
-    following = UserSerializer(read_only=True)
-
-    class Meta:
-        model = Follow
-        fields = ['id', 'follower', 'following', 'created_at']
-
 # Notification Serializer
 class NotificationSerializer(serializers.ModelSerializer):
+    sender = serializers.StringRelatedField()
+    receiver = serializers.StringRelatedField()
+
     class Meta:
         model = Notification
-        fields = ['id', 'user', 'message', 'created_at', 'is_read']
+        fields = ['id', 'sender', 'receiver', 'post', 'message', 'created_at', 'is_read']

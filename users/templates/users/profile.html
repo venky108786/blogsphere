@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>{{ user_profile.user.username }}'s Profile</h2>
+
+{% if request.user != user_profile.user %}
+    <form action="{% url 'toggle_follow' user_profile.user.username %}" method="post">
+        {% csrf_token %}
+        {% if is_following %}
+            <button type="submit" class="btn btn-danger">Unfollow</button>
+        {% else %}
+            <button type="submit" class="btn btn-primary">Follow</button>
+        {% endif %}
+    </form>
+{% endif %}
+
+<p><strong>Email:</strong> {{ user_profile.user.email }}</p>
+
+<h3>Followers ({{ user_profile.followers.count }})</h3>
+<ul>
+    {% for follower in user_profile.followers.all %}
+        <li>
+            <a href="{% url 'user_profile' username=follower.user.username %}">
+                {{ follower.user.username }}
+            </a>
+        </li>
+    {% empty %}
+        <p>No followers yet.</p>
+    {% endfor %}
+</ul>
+
+<h3>Following ({{ user_profile.following.count }})</h3>
+<ul>
+    {% for following in user_profile.following.all %}
+        <li>
+            <a href="{% url 'user_profile' username=following.user.username %}">
+                {{ following.user.username }}
+            </a>
+        </li>
+    {% empty %}
+        <p>You're not following anyone yet.</p>
+    {% endfor %}
+</ul>
+
+<h3>{{ user_profile.user.username }}'s Posts</h3>
+<ul>
+    {% for post in user_posts %}
+        <li>
+            <a href="{% url 'post-detail-page' post.id %}">{{ post.title }}</a>
+            - {{ post.created_at }}
+        </li>
+    {% empty %}
+        <li>No posts yet.</li>
+    {% endfor %}
+</ul>
+{% endblock %}

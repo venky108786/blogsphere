@@ -1,0 +1,139 @@
+.post-card {
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 20px auto;
+    max-width: 700px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    transition: box-shadow 0.2s ease;
+}
+
+.post-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.post-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.post-body {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 10px;
+    line-height: 1.6;
+}
+
+.post-meta {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 15px;
+}
+
+.post-author {
+    color: #0079d3;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.post-author:hover {
+    text-decoration: underline;
+}
+
+/* Buttons: Like, Comment */
+
+.inline-form,
+.btn-comment {
+    display: inline-block;
+    margin-right: 10px;
+}
+
+.btn-like,
+.btn-comment,
+.btn-submit {
+    padding: 6px 12px;
+    font-size: 9px;
+    font-weight: 500;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: #0079d3;
+    color: white;
+    transition: background-color 0.2s ease;
+}
+
+.btn-like:hover,
+.btn-comment:hover,
+.btn-submit:hover {
+    background-color: #005999;
+}
+
+.hidden {
+    display: none;
+}
+
+.comment-form {
+    margin-top: 10px;
+}
+
+.comment-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    resize: vertical;
+}
+
+.btn-submit {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background-color: #2f80ed;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-submit:hover {
+    background-color: #256bd1;
+}
+
+
+/*comment*/
+.hidden {
+    display: none;
+}
+
+.comment-form {
+    margin-top: 10px;
+}
+
+.comment-input {
+    width: 80%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    resize: vertical;
+}
+
+.btn-submit {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background-color: #2f80ed;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-submit:hover {
+    background-color: #256bd1;
+}
+.btn-like.liked {
+    background-color: #e0245e;
+    color: white;
+    border: 1px solid #c81e4a;
+}

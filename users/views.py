@@ -1,75 +1,191 @@
+from django.contrib import messages
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.shortcuts import get_object_or_404
-from rest_framework import status, generics, permissions
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from django.http import JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.views import View
+from django.views.decorators.http import require_POST
+from rest_framework import generics, permissions
+from blog.models import Post, Notification
+from .serializers import UserSerializer, FollowSerializer
+from .models import Follow
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth.views import LoginView
 
-from blog.models import Notification
-from .models import UserProfile
-from .serializers import UserProfileSerializer, FollowSerializer
 
-class FollowUnfollowView(APIView):
-    """
-    API to follow or unfollow a user.
-    """
-    permission_classes = [IsAuthenticated]
+class CustomLoginView(LoginView):
+    template_name = 'users/login.html'
 
-    def post(self, request, username):
-        user_to_follow = get_object_or_404(UserProfile, user__username=username)
-        user_profile = request.user.user_profile  # Get the logged-in user's profile
+    def form_invalid(self, form):
+        #Add a message when login fails
+        messages.error(self.request, "Invalid username or password.")
+        return super().form_invalid(form)
 
-        if user_profile.is_following(user_to_follow):
-            user_profile.unfollow(user_to_follow)
-            return Response({"message": f"Unfollowed {username}"}, status=status.HTTP_200_OK)
-        else:
-            user_profile.follow(user_to_follow)
+class UserRegisterView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
 
-            # ✅ Create a Notification
-            Notification.objects.create(
-                user=user_to_follow.user,  # The person being followed receives the notification
-                message=f"{request.user.username} followed you"
-            )
+    def perform_create(self, serializer):
+        serializer.save(password=make_password(serializer.validated_data['password']))
+def RegisterView(request):
+    if request.method == "POST":
+        first_name = request.POST.get("first_name")
+        last_name = request.POST.get("last_name")
+        email = request.POST.get("email")
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+        confirm_password = request.POST.get("confirm_password")
 
-            return Response({"message": f"Followed {username}"}, status=status.HTTP_200_OK)
-class FollowersListView(APIView):
-    """
-    API to get a list of followers of a user.
-    """
-    permission_classes = [IsAuthenticated]
+        if password != confirm_password:
+            return render(request, "users/register.html", {"error": "Passwords do not match!"})
 
-    def get(self, request, username):
-        user = get_object_or_404(UserProfile, user__username=username)
-        followers = user.followers.all()  # Get all users who follow this user
-        serializer = UserProfileSerializer(followers, many=True)
-        return Response({"followers": serializer.data})
+        # Create user
+        user = User.objects.create(
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            username=username,
+            password=make_password(password)  # Hashing the password
+        )
+        return redirect("login")  # Redirect to login page after successful registration
 
-class FollowingListView(APIView):
-    """
-    API to get a list of users this user follows.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, username):
-        user = get_object_or_404(UserProfile, user__username=username)
-        following = user.following.all()  # Get all users this user follows
-        serializer = UserProfileSerializer(following, many=True)
-        return Response({"following": serializer.data})
-
-class UserProfileView(generics.RetrieveAPIView):
-    """
-    API to retrieve user profile details.
-    """
-    queryset = UserProfile.objects.all()  # ✅ Ensure it queries UserProfile
-    serializer_class = UserProfileSerializer
-    lookup_field = "user__username"  # ✅ Corrected field name
-    lookup_url_kwarg = "username"
-    permission_classes = [permissions.IsAuthenticated]
+    return render(request, "users/register.html")
 
 class FollowCreateView(generics.CreateAPIView):
-    """
-    API to create a follow relationship.
-    """
-    queryset = UserProfile.objects.all()
     serializer_class = FollowSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(follower=self.request.user)
+
+
+class FollowUnfollowView(generics.DestroyAPIView):
+    serializer_class = FollowSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return Follow.objects.get(follower=self.request.user, following_id=self.kwargs['user_id'])
+
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['posts'] = Post.objects.filter(author=self.request.user)  # ✅ Only show user's posts
+        return context
+
+
+# User = get_user_model()
+#
+# class UserProfileView(View):
+#     def get(self, request, username):
+#         user = get_object_or_404(User, username=username)
+#         return render(request, "users/profile.html", {"profile_user": user})
+
+User = get_user_model()
+
+class UserSearchView(View):
+    def get(self, request):
+        query = request.GET.get('q', '').strip()
+        if query:
+            users = User.objects.filter(username__icontains=query).values('id', 'username')
+            return JsonResponse(list(users), safe=False)
+        return JsonResponse([], safe=False)
+
+
+from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404, render
+from .models import UserProfile
+# from blogs.models import Post
+
+User = get_user_model()
+
+def profile_view(request, username):
+    user = get_object_or_404(User, username=username)
+    user_profile = get_object_or_404(UserProfile, user=user)
+    followers = user_profile.followers.all()
+    following = user_profile.following.all()
+    user_posts = Post.objects.filter(author=user).order_by('-created_at')
+
+    is_following = False
+    if request.user.is_authenticated:
+        current_profile = request.user.userprofile
+        is_following = user_profile.followers.filter(id=current_profile.id).exists()
+
+    context = {
+        'user_profile': user_profile,
+        'user': user,
+        'followers': followers,
+        'following': following,
+        'user_posts': user_posts,
+        'is_following': is_following,  # 👈 Send to template
+    }
+    return render(request, 'users/profile.html', context)
+
+
+@require_POST
+@login_required
+def follow_user(request, username):
+    target_user = get_object_or_404(User, username=username)
+    target_profile = get_object_or_404(UserProfile, user=target_user)
+    current_profile = request.user.user_profile
+
+    # Prevent self-following
+    if target_profile != current_profile:
+        current_profile.follow(target_profile)
+
+        # Create a notification
+        Notification.objects.create(
+            sender=request.user,
+            receiver=target_user,
+            message=f"{request.user.username} followed you.",
+            notification_type='follow'
+        )
+
+    return redirect('user_profile', username=username)
+
+@require_POST
+@login_required
+def unfollow_user(request, username):
+    target_user = get_object_or_404(User, username=username)
+    target_profile = get_object_or_404(UserProfile, user=target_user)
+    current_profile = request.user.user_profile
+
+    if target_profile != current_profile:
+        current_profile.unfollow(target_profile)
+
+    return redirect('user_profile', username=username)
+
+
+User = get_user_model()
+
+@require_POST
+@login_required
+def toggle_follow(request, username):
+    target_user = get_object_or_404(User, username=username)
+    target_profile = get_object_or_404(UserProfile, user=target_user)
+    current_user_profile = request.user.userprofile  # 👈 Get logged-in user's profile
+
+    if target_profile.followers.filter(id=current_user_profile.id).exists():
+        # 🔻 Already following → UNFOLLOW
+        target_profile.followers.remove(current_user_profile)
+
+        # ❗ Add notification for unfollow
+        Notification.objects.create(
+            sender=request.user,
+            receiver=target_user,
+            message=f"{request.user.username} unfollowed you.",
+            notification_type='unfollow'
+        )
+    else:
+        #Not following → FOLLOW
+        target_profile.followers.add(current_user_profile)
+
+        #Follow notification
+        Notification.objects.create(
+            sender=request.user,
+            receiver=target_user,
+            message=f"{request.user.username} followed you.",
+            notification_type='follow'
+        )
+
+    return redirect("user_profile", username=target_user.username)

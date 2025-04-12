@@ -1,103 +1,138 @@
-from django.shortcuts import get_object_or_404
-from rest_framework import generics, permissions
-from rest_framework.exceptions import PermissionDenied
-from .models import UserProfile, Post, Comment, Like, Follow, Notification
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import CreateView, DetailView
+from rest_framework import generics, permissions, status
+from django.urls import reverse_lazy
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import Post, Comment, Like, Notification
+from .serializers import PostSerializer, CommentSerializer, LikeSerializer, NotificationSerializer
 from .permissions import IsAdminOrAuthor
-from .serializers import (
-    UserProfileSerializer, PostSerializer, CommentSerializer,
-    LikeSerializer, FollowSerializer, NotificationSerializer
-)
-
-# 🔹 User Profile View
-class UserProfileView(generics.RetrieveUpdateAPIView):
-    """Retrieve or update the logged-in user's profile"""
-    queryset = UserProfile.objects.all()
-    serializer_class = UserProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_object(self):
-        return self.request.user.userprofile  # Get the logged-in user's profile
 
 
-# 🔹 Post Views
+
 class PostListCreateView(generics.ListCreateAPIView):
-    """List all posts and allow authenticated users to create a post"""
-    queryset = Post.objects.all().order_by('-created_at')
-    serializer_class = PostSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)  # Auto-assign logged-in user
-
-
-class PostRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
-    """Retrieve, update, or delete a specific post"""
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
-    def perform_update(self, serializer):
-        """Ensure only the owner can update"""
-        if self.get_object().user != self.request.user:
-            raise PermissionDenied("You are not the owner of this post!")
-        serializer.save()
 
-    def perform_destroy(self, instance):
-        """Ensure only the owner can delete"""
-        if instance.user != self.request.user:
-            raise PermissionDenied("You cannot delete this post!")
-        instance.delete()
+class PostRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+    permission_classes = [IsAdminOrAuthor]
+
+class PostCreateView(LoginRequiredMixin, CreateView):
+    model = Post
+    fields = ['title', 'content']
+    template_name = 'blog/post_form.html'
+    success_url = reverse_lazy('home')
+
+    def form_valid(self, form):
+        form.instance.author = self.request.user  # Ensure the logged-in user is set as the author
+        return super().form_valid(form)
 
 
-# 🔹 Comment Views
+class PostDetailView(DetailView):
+    model = Post
+    template_name = 'blog/post_detail.html'
+    context_object_name = 'post'
+
+
 class CommentListCreateView(generics.ListCreateAPIView):
-    """List comments and allow users to create a comment"""
-    queryset = Comment.objects.all().order_by('-created_at')
+    queryset = Comment.objects.all()
     serializer_class = CommentSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)  # Assign user automatically
+        comment = serializer.save(user=self.request.user)
 
+        # 🔔 Notify post owner
+        if comment.post.author != self.request.user:
+            Notification.objects.create(
+                receiver=comment.post.author,
+                sender=self.request.user,
+                post=comment.post,
+                message=f"{self.request.user.username} commented on your post '{comment.post.title}'"
+            )
 
-# 🔹 Like Views (Preventing Duplicate Likes)
+class CommentRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+    permission_classes = [IsAdminOrAuthor]
+
 class LikeCreateView(generics.CreateAPIView):
-    """Allow users to like a post (only once per post)"""
     serializer_class = LikeSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        post = serializer.validated_data['post']
-        existing_like = Like.objects.filter(user=self.request.user, post=post).first()
-        if existing_like:
-            raise PermissionDenied("You have already liked this post!")
-        serializer.save(user=self.request.user)
+        like = serializer.save(user=self.request.user)
+
+        # 🔔 Create Notification for the post owner
+        if like.post.author != self.request.user:
+            Notification.objects.create(
+                receiver=like.post.author,
+                sender=self.request.user,
+                post=like.post,
+                message=f"{self.request.user.username} liked your post '{like.post.title}'"
+            )
 
 
-# 🔹 Follow Views (Preventing Duplicate Follow)
-class FollowCreateView(generics.CreateAPIView):
-    """Allow users to follow other users (but prevent duplicate follows)"""
-    serializer_class = FollowSerializer
+class UnlikeDeleteView(generics.DestroyAPIView):
+    serializer_class = LikeSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def perform_create(self, serializer):
-        followed_user = serializer.validated_data['following']
-        if Follow.objects.filter(follower=self.request.user, following=followed_user).exists():
-            raise PermissionDenied("You are already following this user!")
-        serializer.save(follower=self.request.user)
+    def get_object(self):
+        return Like.objects.get(user=self.request.user, post_id=self.kwargs['post_id'])
 
 
-# 🔹 Notification Views
+from django.shortcuts import render
+from .models import Post
+
+def home_view(request):
+    all_posts = Post.objects.all().order_by('-created_at')
+    liked_post_ids = []
+
+    if request.user.is_authenticated:
+        liked_post_ids = Like.objects.filter(user=request.user).values_list('post_id', flat=True)
+
+    return render(request, 'blog/home.html', {
+        'all_posts': all_posts,
+        'liked_post_ids': liked_post_ids,
+    })
+
 class NotificationListView(generics.ListAPIView):
-    """List notifications for the logged-in user"""
     serializer_class = NotificationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user).order_by('-created_at')
+        return Notification.objects.filter(receiver=self.request.user).order_by('-created_at')
 
-class PostDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Only authors or admins can delete posts."""
-    queryset = Post.objects.all()
-    serializer_class = PostSerializer
-    permission_classes = [IsAdminOrAuthor]
+
+class CommentCreateWithNotificationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, post_id):
+        try:
+            post = Post.objects.get(pk=post_id)
+        except Post.DoesNotExist:
+            return Response({"error": "Post not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = CommentSerializer(data=request.data, context={'request': request, 'post': post})
+        if serializer.is_valid():
+            comment = serializer.save(user=request.user)
+
+            # 🔔 Create notification with actual comment text
+            if post.author != request.user:
+                Notification.objects.create(
+                    sender=request.user,
+                    receiver=post.author,
+                    notification_type='comment',
+                    post=post,
+                    message=f'{request.user.username} commented on your post "{post.title}": {comment.content}'
+                )
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+

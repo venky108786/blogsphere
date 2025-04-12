@@ -1,0 +1,135 @@
+.dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+.dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: #f1f1f1;
+            min-width: 300px;
+            max-height: 300px;
+            overflow-y: auto;
+            box-shadow: 0px 8px 16px rgba(0,0,0,0.2);
+            z-index: 100;
+        }
+
+.dropdown:hover .dropdown-content {
+            display: block;
+        }
+
+.dropdown-content p {
+            padding: 8px 12px;
+            border-bottom: 1px solid #ccc;
+            font-size: 0.9rem;
+        }
+
+
+.search-results {
+            position: absolute;
+            background-color: #4d4f4f;
+            border: 1px solid #ebf2f2;
+            border-radius:10px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 99;
+            color:#424545;
+
+
+        }
+
+.search-results a {
+            display: block;
+            padding:10px;
+            text-decoration: none;
+             color:#272b2b;
+        }
+
+.search-results a:hover {
+            background-color: #eee;
+        }
+.no-user-found {
+    color: #ffffff;
+    padding: 6px 12px;
+    border-radius: 6px;
+}
+
+
+/* nav bar */
+.top-navbar {
+    background-color: #51dbed;
+    padding: 12px 24px;
+    border-bottom: 2px solid #2563eb;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-radius:10px;
+}
+
+.navbar-tabs {
+    list-style: none;
+    display: flex;
+    gap: 18px;
+    margin: 0;
+    padding: 0;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.navbar-tabs li {
+    position: relative;
+}
+
+.navbar-tabs a {
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    color: #f3f4f6;
+    font-weight: 500;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.navbar-tabs a:hover,
+.navbar-tabs a:focus {
+    background-color: #2563eb;
+    color: white;
+}
+
+/* 🔍 Search Bar */
+.navbar-tabs input[type="text"] {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #374151;
+    background-color: #1f2937;
+    color: #fff;
+    width: 200px;
+    outline: none;
+}
+
+.navbar-tabs input[type="text"]::placeholder {
+    color: #9ca3af;
+}
+
+/* 🔔 Dropdown Styling */
+.dropdown-content {
+    position: absolute;
+    top: 120%;
+    left: 0;
+    background-color: #1e293b;
+    color: white;
+    padding: 10px;
+    min-width: 200px;
+    display: none;
+    border-radius: 6px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+}
+
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+.text-muted {
+    color: #9ca3af;
+    font-size: 14px;
+}

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlogSphere</title>
+    <link rel="stylesheet" href="{% static 'main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+</head>
+
+<body>
+<header>
+    <h1>Welcome to BlogSphere</h1>
+    <nav class="top-navbar">
+        <ul class="navbar-tabs">
+            <li><a href="{% url 'home' %}">Home</a></li>
+
+            {% if user.is_authenticated %}
+                <li><a href="{% url 'user_profile' username=request.user.username %}">Profile</a></li>
+                <li><a href="{% url 'post-create' %}">Create Post</a></li>
+
+                <!-- ✅ Notifications Dropdown -->
+                <li class="dropdown">
+                    <a href="#">🔔 Notifications</a>
+                    <div class="dropdown-content" id="notificationList">
+                        <p class="text-muted">Loading...</p>
+                    </div>
+                </li>
+
+                <!--Search Bar for logged-in users -->
+                <li>
+                    <input type="text" id="searchBar" placeholder="Search users..." onkeyup="searchUsers()">
+                    <div id="searchResults" class="search-results"></div>
+                </li>
+
+                <li><a href="{% url 'logout' %}">Logout</a></li>
+
+            {% else %}
+                <li><a href="{% url 'login' %}">Login</a></li>
+                <li><a href="{% url 'register' %}">Register</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+</header>
+
+<main>
+    {% block content %}
+    {% endblock %}
+</main>
+
+<footer>
+    <p>&copy; 2025 BlogSphere</p>
+</footer>
+
+<script>
+function searchUsers() {
+    const query = document.getElementById("searchBar").value;
+
+    if (query.length > 0) {
+        fetch(`/users/search/?q=${query}`)
+            .then(response => response.json())
+            .then(data => {
+                const resultsDiv = document.getElementById("searchResults");
+                resultsDiv.innerHTML = "";
+
+                if (data.length === 0) {
+                    resultsDiv.innerHTML = "<p class='no-user-found'>No users found.</p>";
+                } else {
+                    data.forEach(user => {
+                        const link = document.createElement("a");
+                        link.href = `/users/profile/${user.username}/`;
+                        link.textContent = user.username;
+                        resultsDiv.appendChild(link);
+                    });
+                }
+            });
+    } else {
+        document.getElementById("searchResults").innerHTML = "";
+    }
+}
+
+// ✅ Notifications fetch
+document.addEventListener('DOMContentLoaded', function () {
+    const notifList = document.getElementById('notificationList');
+    const notifDropdown = notifList?.parentElement;
+
+    if (notifDropdown) {
+        notifDropdown.addEventListener('mouseenter', function () {
+            fetch('/api/blog/notifications/', {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                notifList.innerHTML = "";
+
+                if (data.length === 0) {
+                    notifList.innerHTML = "<p>No notifications 📭</p>";
+                } else {
+                    data.forEach(n => {
+                        notifList.innerHTML += `
+                            <p><strong>${n.sender.username}</strong>: ${n.message}<br>
+                            <small>${new Date(n.created_at).toLocaleString()}</small></p>`;
+                    });
+                }
+            })
+            .catch(err => {
+                notifList.innerHTML = '<p class="text-danger">Something went wrong 💥</p>';
+                console.error("Notification fetch error:", err);
+            });
+        });
+    }
+});
+</script>
+
+</body>
+</html>

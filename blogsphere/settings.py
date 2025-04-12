@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 from datetime import timedelta
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,7 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'blog',
-    'users',
+    'users.apps.UsersConfig',
+    # 'users',
     'rest_framework',
     'rest_framework.authtoken',
     'rest_framework_simplejwt',
@@ -59,7 +61,11 @@ ROOT_URLCONF = 'blogsphere.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, "templates")],
+        'DIRS': [
+                    BASE_DIR / "templates",
+                    BASE_DIR / "users" / "templates",  # Add this to search inside the users app
+                ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -67,10 +73,12 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+
             ],
         },
     },
 ]
+
 
 WSGI_APPLICATION = 'blogsphere.wsgi.application'
 
@@ -124,7 +132,11 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]  # If you have a static folder in the project
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # For collecting static files
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -152,3 +164,11 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),  # Users must send token as 'Bearer <token>'
     'ALGORITHM': 'HS256',  # Default algorithm for JWT
 }
+
+from django.contrib.messages import constants as messages
+
+MESSAGE_TAGS = {
+    messages.ERROR: 'danger',
+    messages.SUCCESS: 'success',
+}
+LOGIN_REDIRECT_URL = '/'
